@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoPlatform — Форум, Лента и Чат</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased">
+
+    <!-- НАВИГАЦИОННАЯ ПАНЕЛЬ -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-brand-600 p-2 rounded-xl text-white shadow-lg shadow-brand-500/20">
+                    <i data-lucide="layers" class="w-6 h-6"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">GoEngine</span>
+            </div>
+
+            <!-- Вкладки навигации -->
+            <nav class="flex space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button onclick="switchTab('threads')" id="tab-btn-threads" class="nav-tab px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 text-slate-400 hover:text-white">
+                    <i data-lucide="messages-square" class="w-4 h-4"></i> Главная (Треды)
+                </button>
+                <button onclick="switchTab('feed')" id="tab-btn-feed" class="nav-tab px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 text-slate-400 hover:text-white">
+                    <i data-lucide="newspaper" class="w-4 h-4"></i> Лента
+                </button>
+                <button onclick="switchTab('chat')" id="tab-btn-chat" class="nav-tab px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 text-slate-400 hover:text-white">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i> Чат
+                </button>
+            </nav>
+
+            <!-- Пользователь / Авторизация -->
+            <div id="user-badge" class="flex items-center gap-3">
+                <button onclick="openAuthModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                    Войти
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col overflow-hidden">
+        
+        <!-- ВКЛАДКА 1: ТРЕДЫ (ФОРУМ) -->
+        <section id="tab-threads" class="tab-content flex-1 flex flex-col gap-4">
+            <div class="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
+                <div>
+                    <h1 class="text-xl font-bold">Форум и Обсуждения</h1>
+                    <p class="text-xs text-slate-400">Ветвистые треды вопросов и ответов</p>
+                </div>
+                <button onclick="openNewThreadModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> Создать тред
+                </button>
+            </div>
+
+            <div id="thread-view-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+                <!-- Список тредов -->
+                <div class="md:col-span-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col">
+                    <h2 class="font-semibold text-slate-300 mb-3 text-sm uppercase tracking-wider">Все темы</h2>
+                    <div id="threads-list" class="space-y-2 overflow-y-auto custom-scrollbar flex-1 pr-1">
+                        <!-- Загружается динамически -->
+                    </div>
+                </div>
+                <!-- Детали треда и ответы -->
+                <div class="md:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col justify-between">
+                    <div id="thread-detail" class="overflow-y-auto custom-scrollbar flex-1 space-y-4">
+                        <div class="text-center text-slate-500 py-12">Выберите тред из списка слева</div>
+                    </div>
+                    <!-- Форма ответа -->
+                    <div id="thread-reply-box" class="hidden border-t border-slate-800 pt-4 mt-4">
+                        <form onsubmit="submitThreadReply(event)" class="flex gap-2">
+                            <input type="text" id="reply-input" placeholder="Написать ответ..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-500">
+                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Отправить</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ВКЛАДКА 2: ЛЕНТА ПОСТОВ (ВК-СТИЛЬ) -->
+        <section id="tab-feed" class="tab-content flex-1 max-w-2xl mx-auto w-full space-y-4 overflow-y-auto custom-scrollbar hidden">
+            <!-- Блок создания поста -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <form onsubmit="createPost(event)" class="space-y-3">
+                    <textarea id="post-content" rows="3" placeholder="Что у вас нового?" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm focus:outline-none focus:border-brand-500 resize-none"></textarea>
+                    <div class="flex justify-between items-center">
+                        <input type="text" id="post-media-url" placeholder="Ссылка на изображение (опционально)" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs w-2/3 focus:outline-none focus:border-brand-500">
+                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium">Опубликовать</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Список постов -->
+            <div id="posts-feed" class="space-y-4">
+                <!-- Загружается динамически -->
+            </div>
+        </section>
+
+        <!-- ВКЛАДКА 3: РЕАЛЬНЫЙ ЧАТ -->
+        <section id="tab-chat" class="tab-content flex-1 bg-slate-900 border border-slate-800 rounded-xl flex overflow-hidden hidden">
+            <!-- Диалоги -->
+            <div class="w-1/3 border-r border-slate-800 p-4 flex flex-col">
+                <h2 class="font-bold text-lg mb-4">Комнаты</h2>
+                <div class="space-y-2">
+                    <button class="w-full text-left p-3 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-between">
+                        <div>
+                            <div class="font-medium text-sm">Общий чат</div>
+                            <div class="text-xs text-slate-400">Room #1</div>
+                        </div>
+                        <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Область сообщений -->
+            <div class="flex-1 flex flex-col bg-slate-950">
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900">
+                    <span class="font-semibold text-sm"># Общий чат</span>
+                    <span id="chat-status" class="text-xs text-amber-500 flex items-center gap-1">● Соединение...</span>
+                </div>
+
+                <div id="chat-messages" class="flex-1 p-4 overflow-y-auto custom-scrollbar space-y-3">
+                    <!-- Загружается из истории и WS -->
+                </div>
+
+                <form onsubmit="sendChatMessage(event)" class="p-3 border-t border-slate-800 bg-slate-900 flex gap-2">
+                    <input type="text" id="chat-input" placeholder="Напишите сообщение..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-brand-500">
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="flex gap-4 border-b border-slate-800 mb-6">
+                <button onclick="switchAuthMode('login')" id="auth-tab-login" class="pb-2 font-semibold text-brand-500 border-b-2 border-brand-500">Вход</button>
+                <button onclick="switchAuthMode('register')" id="auth-tab-register" class="pb-2 font-semibold text-slate-400">Регистрация</button>
+            </div>
+
+            <!-- Форма входа -->
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Email</label>
+                    <input type="email" id="login-email" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Пароль</label>
+                    <input type="password" id="login-password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-lg text-sm font-medium transition">Войти</button>
+            </form>
+
+            <!-- Форма регистрации -->
+            <form id="register-form" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Имя пользователя</label>
+                    <input type="text" id="reg-username" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Email</label>
+                    <input type="email" id="reg-email" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Пароль</label>
+                    <input type="password" id="reg-password" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-lg text-sm font-medium transition">Зарегистрироваться</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО СОЗДАНИЯ ТРЕДА -->
+    <div id="new-thread-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 relative shadow-2xl">
+            <button onclick="closeNewThreadModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h3 class="text-lg font-bold mb-4">Создание новой темы</h3>
+            <form onsubmit="createThread(event)" class="space-y-4">
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Заголовок</label>
+                    <input type="text" id="thread-title" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 font-medium">Содержимое</label>
+                    <textarea id="thread-content" rows="4" required class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm mt-1 focus:border-brand-500 focus:outline-none resize-none"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white py-2.5 rounded-lg text-sm font-medium transition">Опубликовать тред</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- СКРИПТ КЛИЕНТСКОЙ ЛОГИКИ -->
+    <script>
+        // Стейт приложения
+        let currentUser = JSON.parse(localStorage.getItem('user')) || null;
+        let activeThreadId = null;
+        let ws = null;
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updateUserUI();
+            switchTab('threads');
+        });
+
+        // Вспомогательная функция для API запросов
+        async function apiFetch(url, options = {}) {
+            options.headers = { 'Content-Type': 'application/json', ...options.headers };
+            const res = await fetch(url, options);
+            if (res.status === 401) {
+                logout();
+                openAuthModal();
+                throw new Error('Unauthorized');
+            }
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(err || 'Server Error');
+            }
+            return res.json().catch(() => ({}));
+        }
+
+        // --- УПРАВЛЕНИЕ ВКЛАДКАМИ ---
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-tab').forEach(el => {
+                el.classList.remove('bg-brand-600', 'text-white');
+                el.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tab}`);
+            activeBtn.classList.add('bg-brand-600', 'text-white');
+            activeBtn.classList.remove('text-slate-400');
+
+            if (tab === 'threads') loadThreads();
+            if (tab === 'feed') loadPosts();
+            if (tab === 'chat') initChat();
+        }
+
+        // --- АВТОРИЗАЦИЯ ---
+        function updateUserUI() {
+            const badge = document.getElementById('user-badge');
+            if (currentUser) {
+                badge.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-slate-300">${currentUser.username}</span>
+                        <button onclick="logout()" class="text-slate-400 hover:text-rose-500 p-1"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+                    </div>
+                `;
+            } else {
+                badge.innerHTML = `<button onclick="openAuthModal()" class="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">Войти</button>`;
+            }
+            lucide.createIcons();
+        }
+
+        function openAuthModal() { document.getElementById('auth-modal').classList.remove('hidden'); }
+        function closeAuthModal() { document.getElementById('auth-modal').classList.add('hidden'); }
+        function switchAuthMode(mode) {
+            if (mode === 'login') {
+                document.getElementById('login-form').classList.remove('hidden');
+                document.getElementById('register-form').classList.add('hidden');
+                document.getElementById('auth-tab-login').className = 'pb-2 font-semibold text-brand-500 border-b-2 border-brand-500';
+                document.getElementById('auth-tab-register').className = 'pb-2 font-semibold text-slate-400';
+            } else {
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('register-form').classList.remove('hidden');
+                document.getElementById('auth-tab-register').className = 'pb-2 font-semibold text-brand-500 border-b-2 border-brand-500';
+                document.getElementById('auth-tab-login').className = 'pb-2 font-semibold text-slate-400';
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            try {
+                const data = await apiFetch('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        email: document.getElementById('login-email').value,
+                        password: document.getElementById('login-password').value
+                    })
+                });
+                currentUser = data.user;
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                updateUserUI();
+                closeAuthModal();
+            } catch (err) { alert('Ошибка входа: ' + err.message); }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            try {
+                await apiFetch('/api/auth/register', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: document.getElementById('reg-username').value,
+                        email: document.getElementById('reg-email').value,
+                        password: document.getElementById('reg-password').value
+                    })
+                });
+                alert('Успешная регистрация! Выполните вход.');
+                switchAuthMode('login');
+            } catch (err) { alert('Ошибка регистрации: ' + err.message); }
+        }
+
+        function logout() {
+            currentUser = null;
+            localStorage.removeItem('user');
+            updateUserUI();
+            if (ws) ws.close();
+        }
+
+        // --- ЛОГИКА ТРЕДОВ ---
+        async function loadThreads() {
+            try {
+                const threads = await apiFetch('/api/threads');
+                const list = document.getElementById('threads-list');
+                list.innerHTML = (threads || []).map(t => `
+                    <div onclick="selectThread(${t.id})" class="p-3 bg-slate-950 hover:bg-slate-800/50 rounded-lg cursor-pointer border border-slate-800 transition">
+                        <div class="font-medium text-sm text-slate-200">${t.title}</div>
+                        <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
+                            <span>@${t.author_username || 'user'}</span>
+                            <span>${new Date(t.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) { console.error(err); }
+        }
+
+        async function selectThread(id) {
+            activeThreadId = id;
+            try {
+                const t = await apiFetch(`/api/threads/${id}`);
+                const detail = document.getElementById('thread-detail');
+                document.getElementById('thread-reply-box').classList.remove('hidden');
+
+                detail.innerHTML = `
+                    <div class="border-b border-slate-800 pb-4">
+                        <h2 class="text-2xl font-bold mb-2">${t.title}</h2>
+                        <div class="text-xs text-slate-400 mb-4">Автор: @${t.author_username} • ${new Date(t.created_at).toLocaleString()}</div>
+                        <p class="text-slate-300 text-sm leading-relaxed">${t.content}</p>
+                    </div>
+                    <div class="space-y-3 pt-2">
+                        <h3 class="text-xs font-semibold text-slate-400 uppercase">Ответы (${(t.replies || []).length})</h3>
+                        ${(t.replies || []).map(r => `
+                            <div class="p-3 bg-slate-950 border border-slate-800/80 rounded-lg">
+                                <div class="flex justify-between text-xs text-slate-400 mb-1">
+                                    <span class="font-medium text-brand-400">@${r.author_username}</span>
+                                    <span>${new Date(r.created_at).toLocaleTimeString()}</span>
+                                </div>
+                                <p class="text-sm text-slate-300">${r.content}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } catch (err) { console.error(err); }
+        }
+
+        async function submitThreadReply(e) {
+            e.preventDefault();
+            if (!activeThreadId) return;
+            const input = document.getElementById('reply-input');
+            try {
+                await apiFetch(`/api/threads/${activeThreadId}/reply`, {
+                    method: 'POST',
+                    body: JSON.stringify({ content: input.value })
+                });
+                input.value = '';
+                selectThread(activeThreadId);
+            } catch (err) { alert(err.message); }
+        }
+
+        function openNewThreadModal() { document.getElementById('new-thread-modal').classList.remove('hidden'); }
+        function closeNewThreadModal() { document.getElementById('new-thread-modal').classList.add('hidden'); }
+
+        async function createThread(e) {
+            e.preventDefault();
+            try {
+                await apiFetch('/api/threads', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title: document.getElementById('thread-title').value,
+                        content: document.getElementById('thread-content').value
+                    })
+                });
+                closeNewThreadModal();
+                loadThreads();
+            } catch (err) { alert(err.message); }
+        }
+
+        // --- ЛОГИКА ЛЕНТЫ (ВК-СТИЛЬ) ---
+        async function loadPosts() {
+            try {
+                const posts = await apiFetch('/api/posts');
+                const feed = document.getElementById('posts-feed');
+                feed.innerHTML = (posts || []).map(p => `
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-brand-600/30 text-brand-400 flex items-center justify-center font-bold">
+                                ${p.author_username ? p.author_username[0].toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                                <div class="font-medium text-sm">@${p.author_username}</div>
+                                <div class="text-xs text-slate-500">${new Date(p.created_at).toLocaleString()}</div>
+                            </div>
+                        </div>
+                        <p class="text-sm text-slate-200 leading-relaxed">${p.content}</p>
+                        ${p.media_urls && p.media_urls.length > 0 && p.media_urls[0] ? `
+                            <img src="${p.media_urls[0]}" class="rounded-lg max-h-96 w-full object-cover border border-slate-800">
+                        ` : ''}
+                        <div class="flex items-center gap-4 pt-2 border-t border-slate-800/60 text-slate-400 text-xs">
+                            <button onclick="toggleLike(${p.id}, this)" class="flex items-center gap-1.5 ${p.is_liked ? 'text-rose-500' : 'hover:text-rose-500'} transition">
+                                <i data-lucide="heart" class="w-4 h-4 ${p.is_liked ? 'fill-current' : ''}"></i> <span>${p.likes_count || 0}</span>
+                            </button>
+                            <span class="flex items-center gap-1.5"><i data-lucide="eye" class="w-4 h-4"></i> ${p.views_count || 0}</span>
+                        </div>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+            } catch (err) { console.error(err); }
+        }
+
+        async function createPost(e) {
+            e.preventDefault();
+            const content = document.getElementById('post-content').value;
+            const mediaUrl = document.getElementById('post-media-url').value;
+            try {
+                await apiFetch('/api/posts', {
+                    method: 'POST',
+                    body: JSON.stringify({ content, media_urls: mediaUrl ? [mediaUrl] : [] })
+                });
+                document.getElementById('post-content').value = '';
+                document.getElementById('post-media-url').value = '';
+                loadPosts();
+            } catch (err) { alert(err.message); }
+        }
+
+        async function toggleLike(postId, btn) {
+            try {
+                const res = await apiFetch(`/api/posts/${postId}/like`, { method: 'POST' });
+                loadPosts(); // Реактивное обновление
+            } catch (err) { console.error(err); }
+        }
+
+        // --- ЛОГИКА ЧАТА (WEBSOCKETS) ---
+        async function initChat() {
+            if (!currentUser) {
+                openAuthModal();
+                return;
+            }
+
+            // Загрузка истории
+            try {
+                const history = await apiFetch('/api/chat/history?room_id=1');
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = (history || []).map(m => renderChatMessage(m)).join('');
+                container.scrollTop = container.scrollHeight;
+            } catch (err) { console.error(err); }
+
+            // Подключение к WS
+            if (!ws || ws.readyState === WebSocket.CLOSED) {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+                ws.onopen = () => {
+                    document.getElementById('chat-status').className = 'text-xs text-emerald-400 flex items-center gap-1';
+                    document.getElementById('chat-status').innerText = '● Подключено';
+                };
+
+                ws.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+                    const container = document.getElementById('chat-messages');
+                    container.innerHTML += renderChatMessage(msg);
+                    container.scrollTop = container.scrollHeight;
+                };
+
+                ws.onclose = () => {
+                    document.getElementById('chat-status').className = 'text-xs text-rose-500 flex items-center gap-1';
+                    document.getElementById('chat-status').innerText = '● Отключено';
+                };
+            }
+        }
+
+        function renderChatMessage(msg) {
+            const isSelf = currentUser && msg.sender_id === currentUser.id;
+            return `
+                <div class="flex flex-col ${isSelf ? 'items-end' : 'items-start'}">
+                    <span class="text-[10px] text-slate-500 mb-0.5">@${msg.sender_username || msg.sender || 'user'}</span>
+                    <div class="p-2.5 rounded-xl text-sm max-w-xs md:max-w-md ${isSelf ? 'bg-brand-600 text-white rounded-tr-none' : 'bg-slate-800 text-slate-200 rounded-tl-none'}">
+                        ${msg.content}
+                    </div>
+                </div>
+            `;
+        }
+
+        function sendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (!input.value.trim() || !ws) return;
+
+            const payload = {
+                room_id: 1,
+                content: input.value
+            };
+
+            ws.send(JSON.stringify(payload));
+                input.value = '';
+        }
+    </script>
+</body>
+</html>
